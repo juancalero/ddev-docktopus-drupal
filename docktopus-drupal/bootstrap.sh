@@ -19,6 +19,12 @@
 
 set -eu -o pipefail
 
+# Git-for-Windows bash rewrites POSIX paths (/tmp/...) in arguments passed
+# to native executables; disable that so paths reach ddev/docker intact.
+# Harmless no-ops on Linux/macOS.
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL='*'
+
 STATE_DIR=".ddev/docktopus-drupal"
 MARKER="$STATE_DIR/.installed"
 
@@ -46,7 +52,28 @@ fi
 
 echo "ddev-docktopus-drupal: empty project detected; creating a Drupal 11 site (this takes a few minutes)..."
 
-ddev composer create-project drupal/recommended-project:^11 --no-interaction
+# Create the project inside the container (in /tmp, a directory DDEV's
+# host-side `ddev composer create-project` never inspects) and copy the
+# result into the project root. This bypasses DDEV's project-root
+# allowlist without moving or touching any host file — other services
+# (node, react) keep their bind mounts and can stay running.
+SCAFFOLD="/tmp/docktopus-drupal-scaffold"
+# Remove any leftover scaffold inside the container, then create the
+# project there. Exit codes are not trusted (ddev on Windows can report
+# 1 spuriously); the result is verified by the presence of composer.json.
+ddev exec rm -rf "$SCAFFOLD" 2>/dev/null || true
+ddev exec composer create-project drupal/recommended-project:^11 "$SCAFFOLD" --no-interaction || true
+ddev exec bash -c "cp -a $SCAFFOLD/. /var/www/html/ && rm -rf $SCAFFOLD" || true
+
+# Verify inside the container (consistent view): the host bind-mount sync
+# on Docker Desktop/WSL2 is asynchronous and can lag several minutes.
+if ! ddev exec bash -c "test -f /var/www/html/composer.json"; then
+  echo "ddev-docktopus-drupal: ERROR: 'composer create-project' failed; bootstrap aborted." >&2
+  echo "ddev-docktopus-drupal: the project was left as it was; fix the cause and run 'ddev restart' again." >&2
+  ddev exec rm -rf "$SCAFFOLD" 2>/dev/null || true
+  exit 1
+fi
+
 ddev composer require drush/drush drupal/search_api_solr drupal/ldap --no-interaction
 
 # DDEV main database credentials (mariadb/mysql or postgres).
