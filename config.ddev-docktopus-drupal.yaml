@@ -1,0 +1,20 @@
+# ddev-docktopus-drupal: automatic Drupal bootstrap.
+#ddev-generated
+#
+# DDEV merges the hooks from config.*.yaml files with the ones in your
+# config.yaml, so this file adds a post-start hook without touching your
+# project configuration. The hook runs the idempotent bootstrap script:
+#
+# - empty project  -> installs a Drupal 11 site + stack modules (once)
+# - project with code -> does nothing (just marks itself as done)
+# - .ddev/docktopus-drupal/.skip exists -> does nothing
+#
+# Remove this file (or the whole add-on) to disable the behaviour.
+
+hooks:
+  post-start:
+    - exec-host: |
+        #ddev-description:Docktopus Drupal bootstrap (idempotent; skips existing projects)
+        if [ -f .ddev/docktopus-drupal/bootstrap.sh ]; then
+          bash .ddev/docktopus-drupal/bootstrap.sh
+        fi

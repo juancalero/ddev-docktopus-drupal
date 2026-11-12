@@ -1,0 +1,31 @@
+name: ddev-docktopus-drupal
+
+ddev_version_constraint: '>= v1.24.10'
+
+# The Drupal bootstrap connects the site to Solr (core "dev" from the
+# official ddev-drupal-solr, pinned to 9 by the docktopus config layer)
+# and to OpenLDAP (which also adds the PHP ldap extension to the web
+# image). Both are installed automatically as dependencies.
+dependencies:
+  - juancalero/ddev-docktopus-config
+  - juancalero/ddev-docktopus-ldap
+
+project_files:
+  - config.ddev-docktopus-drupal.yaml
+  - docktopus-drupal
+
+post_install_actions:
+  - |
+    #ddev-description:Notify about the automatic Drupal bootstrap
+    echo "ddev-docktopus-drupal: installed."
+    echo "On the next 'ddev restart':"
+    echo "  - an EMPTY project is bootstrapped automatically into a Drupal 11 site"
+    echo "    (composer create-project + drush site:install + stack modules)."
+    echo "  - a project with code is left untouched."
+    echo "Opt out with:  touch .ddev/docktopus-drupal/.skip"
+
+removal_actions:
+  - |
+    #ddev-description:Removing the docktopus-drupal bootstrap
+    echo "ddev-docktopus-drupal removed: hooks and bootstrap files deleted."
+    echo "The Drupal site itself (if it was created) is your project code and is kept."
